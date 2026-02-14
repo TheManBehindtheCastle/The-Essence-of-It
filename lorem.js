@@ -1,0 +1,1 @@
+export const LOREM = `In the shadow of the great arches, we find that knowledge is not merely possessed but practiced. The ink of the scholar is said to be holier than the blood of the martyr, for it preserves the very architecture of the soul. We trace these lines not to define the world, but to outline the mysteries that lie within the geometry of creation.`;

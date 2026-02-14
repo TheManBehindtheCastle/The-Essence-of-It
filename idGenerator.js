@@ -1,0 +1,1 @@
+export const generateId = (prefix = 'T') => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
