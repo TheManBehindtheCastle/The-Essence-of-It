@@ -1,19 +1,3 @@
-/**
- * LibrisEditor – The primary content creation and editing screen.
- * 
- * This screen provides a tabbed interface for managing all data types:
- *   - Topics
- *   - Dispatches
- *   - Manuscripts
- *   - Portfolio (a single CV‑style object)
- *   - Points of Interest (a list of persons/places with links)
- * 
- * It consumes the RepositoryContext for data and CRUD operations.
- * Local state (`draft`) holds the current form data until saved.
- * 
- * @module LibrisEditor
- */
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -37,16 +21,6 @@ import { useRepository } from '../context/RepositoryContext';
 import AppHeader, { getHeaderHeight } from '../components/AppHeader';
 import TopicNavCarousel, { getCarouselHeight } from '../components/TopicNavCarousel';
 
-// ------------------------------------------------------------------------
-// Default values for new items
-// ------------------------------------------------------------------------
-/**
- * Default empty portfolio structure.
- * To add a new field to the portfolio, add it here and update:
- *   - updatePortfolio in context (optional)
- *   - renderPortfolioForm to include the new input
- *   - PortfolioScreen to display it
- */
 const DEFAULT_PORTFOLIO = {
   name: '',
   subtitle: '',
@@ -57,38 +31,17 @@ const DEFAULT_PORTFOLIO = {
   contact: {},
 };
 
-/**
- * Default empty point structure.
- * To add a new field to a point, add it here and update:
- *   - addPoint/updatePoint in context (automatic if spreading)
- *   - renderPointForm to include the new input
- *   - PointsOfInterestScreen to display it
- */
 const DEFAULT_POINT = {
   name: '',
   description: '',
   links: [],
 };
 
-// ------------------------------------------------------------------------
-// Component
-// ------------------------------------------------------------------------
-
-/**
- * LibrisEditor – main editor screen.
- * 
- * @param {object} route – React Navigation route, may contain `initialItem` for editing.
- * @param {object} navigation – React Navigation navigation object.
- * @returns {JSX.Element}
- */
 const LibrisEditor = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const { initialItem } = route.params || {};
 
-  // --------------------------------------------------------------------
-  // 1. Context data – all collections are guaranteed to be arrays by the provider
-  // --------------------------------------------------------------------
   const {
     subjects = [],
     dispatches = [],
@@ -110,29 +63,18 @@ const LibrisEditor = ({ route, navigation }) => {
     deletePoint,
   } = useRepository();
 
-  // --------------------------------------------------------------------
-  // 2. Local UI state
-  // --------------------------------------------------------------------
-  const [activeTab, setActiveTab] = useState('topics');          // current tab: topics, dispatches, manuscripts, portfolio, points
-  const [editingItem, setEditingItem] = useState(null);          // the item being edited (if any)
-  const [draft, setDraft] = useState({});                        // form data for the current item
-  const [contactError, setContactError] = useState('');          // validation error for portfolio contact JSON
-  const [refreshFlag, setRefreshFlag] = useState(0);             // forces list remount after changes (delete/add)
+  const [activeTab, setActiveTab] = useState('topics');
+  const [editingItem, setEditingItem] = useState(null);
+  const [draft, setDraft] = useState({});
+  const [contactError, setContactError] = useState('');
+  const [refreshFlag, setRefreshFlag] = useState(0);
 
-  // --------------------------------------------------------------------
-  // 3. Effects
-  // --------------------------------------------------------------------
-
-  /**
-   * When `initialItem` is provided (e.g., from a reader screen), load it into the editor.
-   * This sets the correct tab and populates the draft.
-   */
+  // Reset when initialItem changes (edit from reader)
   useEffect(() => {
     if (initialItem) {
-      // Determine which tab to open based on item type
       if (initialItem.type === 'dispatch') setActiveTab('dispatch');
       else if (initialItem.type === 'manuscript') setActiveTab('manuscript');
-      else setActiveTab('topic');  // assume it's a topic
+      else setActiveTab('topic');
       setEditingItem(initialItem);
       setDraft(initialItem);
     } else {
@@ -141,9 +83,7 @@ const LibrisEditor = ({ route, navigation }) => {
     }
   }, [initialItem]);
 
-  /**
-   * When entering the portfolio tab, load the current portfolio into draft and clear any errors.
-   */
+  // When entering portfolio tab, load the current portfolio into draft
   useEffect(() => {
     if (activeTab === 'portfolio') {
       setDraft(portfolio);
@@ -151,11 +91,7 @@ const LibrisEditor = ({ route, navigation }) => {
     }
   }, [activeTab, portfolio]);
 
-  // --------------------------------------------------------------------
-  // 4. Height calculations – ensure scrollable areas have proper size
-  //    These values are derived from known component heights and screen dimensions.
-  //    Adjust the constants if header/carousel heights change.
-  // --------------------------------------------------------------------
+  // Height calculations
   const headerHeight = getHeaderHeight();
   const carouselHeight = getCarouselHeight();
   const topPadding = insets.top;
@@ -169,20 +105,18 @@ const LibrisEditor = ({ route, navigation }) => {
     tabsHeight -
     addButtonHeight -
     20;
-  const safeListHeight = Math.max(listAvailableHeight, 250);   // never below 250px
-  const editorHeight = height - topPadding - headerHeight - carouselHeight - 60;
+  const safeListHeight = Math.max(listAvailableHeight, 250);
 
-  // --------------------------------------------------------------------
-  // 5. DELETE handler – generic for all item types
-  // --------------------------------------------------------------------
-  /**
-   * Displays a confirmation alert and, on confirmation, deletes the item.
-   * After deletion, increments `refreshFlag` to force list remount.
-   * 
-   * @param {string} type – 'topic', 'dispatch', 'manuscript', or 'point'
-   * @param {string} id – Unique identifier of the item
-   * @param {string} title – Display title for the alert
-   */
+  // Base editor height (without any button bars)
+  const baseEditorHeight = height - topPadding - headerHeight - carouselHeight - 60;
+
+  // For forms with fixed bottom bar (topic, dispatch, manuscript), we subtract the bar height
+  const buttonBarHeight = 70; // approximate
+  const scrollViewHeight = baseEditorHeight - buttonBarHeight;
+
+  // ======================================================================
+  // DELETE handler
+  // ======================================================================
   const handleDelete = (type, id, title) => {
     Alert.alert('Confirm Deletion', `Permanently delete "${title}"?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -192,13 +126,11 @@ const LibrisEditor = ({ route, navigation }) => {
         onPress: async () => {
           console.log(`[LibrisEditor] Deleting ${type}: ${id} (${title})`);
           try {
-            // Call the appropriate context method
             if (type === 'topic') await deleteSubject(id);
             else if (type === 'dispatch') await deleteDispatch(id);
             else if (type === 'manuscript') await deleteManuscript(id);
             else if (type === 'point') await deletePoint(id);
 
-            // If we were editing this item, exit edit mode
             if (editingItem?.id === id) {
               setEditingItem(null);
               setDraft({});
@@ -209,7 +141,7 @@ const LibrisEditor = ({ route, navigation }) => {
                 'points'
               );
             }
-            setRefreshFlag(f => f + 1);   // forces list remount
+            setRefreshFlag(f => f + 1);
             console.log(`[LibrisEditor] Deletion successful`);
           } catch (error) {
             console.error(`[LibrisEditor] Deletion failed:`, error);
@@ -220,16 +152,10 @@ const LibrisEditor = ({ route, navigation }) => {
     ]);
   };
 
-  // --------------------------------------------------------------------
-  // 6. SAVE handler – creates or updates an item
-  // --------------------------------------------------------------------
-  /**
-   * Saves the current draft to the appropriate context method.
-   * For new items, generates an ID (portfolio has no ID).
-   * After saving, resets state and navigates back (or stays on portfolio tab).
-   */
+  // ======================================================================
+  // SAVE handler
+  // ======================================================================
   const handleSave = async () => {
-    // Generate an ID if this is a new item (portfolio has no ID)
     if (!draft.id && activeTab !== 'portfolio') {
       const prefix = activeTab === 'dispatch' ? 'D' : activeTab === 'manuscript' ? 'M' : 'P';
       draft.id = generateId(prefix);
@@ -243,10 +169,8 @@ const LibrisEditor = ({ route, navigation }) => {
         else await addDispatch(draft);
       } else if (activeTab === 'manuscript') {
         draft.type = 'manuscript';
-        // Ensure arrays exist
         if (!draft.treatises) draft.treatises = [];
         if (!draft.attachments) draft.attachments = [];
-        // Migrate old `article` field if present (from earlier versions)
         if (draft.article && draft.treatises.length === 0) {
           draft.treatises.push({
             id: generateId('T'),
@@ -267,7 +191,6 @@ const LibrisEditor = ({ route, navigation }) => {
         else await addPoint(draft);
       }
 
-      // Reset state and navigate away
       setEditingItem(null);
       setDraft({});
       if (activeTab === 'portfolio') {
@@ -277,16 +200,16 @@ const LibrisEditor = ({ route, navigation }) => {
       } else {
         navigation.goBack();
       }
-      setRefreshFlag(f => f + 1);   // force list remount after add/update
+      setRefreshFlag(f => f + 1);
     } catch (error) {
       console.error(`[LibrisEditor] Save failed:`, error);
       Alert.alert('Error', 'Failed to save item. Please try again.');
     }
   };
 
-  // --------------------------------------------------------------------
-  // 7. Cancel handler – returns to list view without saving
-  // --------------------------------------------------------------------
+  // ======================================================================
+  // Cancel handler for Topic/Dispatch/Manuscript forms
+  // ======================================================================
   const handleCancel = () => {
     setActiveTab(
       activeTab === 'topic' ? 'topics' :
@@ -297,13 +220,9 @@ const LibrisEditor = ({ route, navigation }) => {
     setDraft({});
   };
 
-  // --------------------------------------------------------------------
-  // 8. Upload helpers (document picker) – dynamic import to avoid requiring the package
-  // --------------------------------------------------------------------
-  /**
-   * Generic document upload for a text field.
-   * @param {string} fieldToSet – The field in `draft` to set with the placeholder text.
-   */
+  // ======================================================================
+  // Upload helpers
+  // ======================================================================
   const handleUpload = async (fieldToSet) => {
     try {
       const DocumentPicker = await import('react-native-document-picker');
@@ -330,9 +249,6 @@ const LibrisEditor = ({ route, navigation }) => {
     }
   };
 
-  /**
-   * Upload one or more attachments (PDF/EPUB) and add to the attachments array.
-   */
   const handleAttachmentUpload = async () => {
     try {
       const DocumentPicker = await import('react-native-document-picker');
@@ -355,46 +271,32 @@ const LibrisEditor = ({ route, navigation }) => {
     }
   };
 
-  /**
-   * Remove an attachment from the draft.
-   * @param {number} index – Index of the attachment to remove.
-   */
   const removeAttachment = (index) => {
     const updated = [...draft.attachments];
     updated.splice(index, 1);
     setDraft({ ...draft, attachments: updated });
   };
 
-  // --------------------------------------------------------------------
-  // 9. Subject toggling (for dispatch/manuscript forms)
-  // --------------------------------------------------------------------
-  /**
-   * Toggles the selected subject. If the same pill is pressed, deselects.
-   * Also clears the segment when subject changes.
-   * @param {string} subjectId – The id of the subject to toggle.
-   */
+  // ======================================================================
+  // Subject toggling
+  // ======================================================================
   const toggleSubject = (subjectId) => {
     setDraft((prev) => ({
       ...prev,
       subjectId: prev.subjectId === subjectId ? undefined : subjectId,
-      segmentId: undefined, // clear segment when subject changes
+      segmentId: undefined,
     }));
   };
 
-  /**
-   * Inserts a subheading marker (`##`) at the end of the given field.
-   * Used for body content and treatise content.
-   * @param {string} fieldName – The field in `draft` to append to.
-   */
   const insertSubheading = (fieldName) => {
     const current = draft[fieldName] || '';
     const newText = current + (current ? '\n\n' : '') + '## New Subheading\n\nSubheading content...';
     setDraft({ ...draft, [fieldName]: newText });
   };
 
-  // --------------------------------------------------------------------
-  // 10. Treatise management helpers
-  // --------------------------------------------------------------------
+  // ======================================================================
+  // Treatise management
+  // ======================================================================
   const addTreatise = () => {
     const newTreatise = {
       id: generateId('T'),
@@ -424,13 +326,9 @@ const LibrisEditor = ({ route, navigation }) => {
     ]);
   };
 
-  // --------------------------------------------------------------------
-  // 11. Segment selector (for dispatch/manuscript)
-  // --------------------------------------------------------------------
-  /**
-   * Renders a horizontal scrollable list of segment pills.
-   * Only enabled if a subject is selected.
-   */
+  // ======================================================================
+  // Segment selector
+  // ======================================================================
   const renderSegmentSelector = () => {
     if (!draft.subjectId) {
       return (
@@ -463,9 +361,9 @@ const LibrisEditor = ({ route, navigation }) => {
     );
   };
 
-  // --------------------------------------------------------------------
-  // 12. Portfolio helpers – Skills, Experience, Education
-  // --------------------------------------------------------------------
+  // ======================================================================
+  // Portfolio helpers – Skills, Experience, Education
+  // ======================================================================
   const addSkill = () => {
     setDraft({
       ...draft,
@@ -550,14 +448,10 @@ const LibrisEditor = ({ route, navigation }) => {
   };
 
   // ======================================================================
-  // 13. FORM RENDERERS
+  // FORM RENDERERS
   // ======================================================================
 
   // ----- Topic Form -----
-  /**
-   * Renders the form for editing a Topic.
-   * Fields: id (editable only for new topics), name, field, era, guiding question.
-   */
   const renderTopicForm = () => (
     <View style={styles.formContainer}>
       <View style={styles.form}>
@@ -568,7 +462,7 @@ const LibrisEditor = ({ route, navigation }) => {
           onChangeText={(t) => setDraft({ ...draft, id: t })}
           placeholder="e.g. falsafa"
           placeholderTextColor={THEME.muted}
-          editable={!editingItem}   // can't edit ID after creation
+          editable={!editingItem}
         />
         <Text style={styles.label}>Name</Text>
         <TextInput
@@ -609,11 +503,6 @@ const LibrisEditor = ({ route, navigation }) => {
   );
 
   // ----- Dispatch Form -----
-  /**
-   * Renders the form for editing a Dispatch.
-   * Fields: title, heading, subject (pill selector with NONE), sub‑topic (segment), body.
-   * Includes a toolbar for adding subheadings and a document upload button.
-   */
   const renderDispatchForm = () => (
     <View style={styles.formContainer}>
       <View style={styles.form}>
@@ -690,14 +579,7 @@ const LibrisEditor = ({ route, navigation }) => {
     </View>
   );
 
-  // ----- Manuscript Form -----
-  /**
-   * Renders the form for editing a Manuscript.
-   * Includes:
-   *   - Metadata: title, author, subject, sub‑topic, blurb, summary
-   *   - Attachments (PDF/EPUB) with add/remove
-   *   - Treatises (multiple) with title, content, subheading toolbar, and document upload
-   */
+  // ----- Manuscript Form (with Genre selector) -----
   const renderManuscriptForm = () => (
     <View style={styles.formContainer}>
       <View style={styles.form}>
@@ -752,6 +634,29 @@ const LibrisEditor = ({ route, navigation }) => {
 
         <Text style={styles.label}>Sub‑topic (required)</Text>
         {renderSegmentSelector()}
+
+        {/* Genre selector */}
+        <Text style={styles.label}>Genre</Text>
+        <View style={styles.pickerRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {['Non-fiction', 'Fiction'].map((g) => (
+              <TouchableOpacity
+                key={g}
+                onPress={() => setDraft({ ...draft, genre: g })}
+                style={[styles.subjectPill, draft.genre === g && styles.subjectPillActive]}
+              >
+                <Text
+                  style={[
+                    styles.subjectPillText,
+                    draft.genre === g && styles.subjectPillTextActive,
+                  ]}
+                >
+                  {g.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
         <Text style={styles.label}>Blurb</Text>
         <TextInput
@@ -870,15 +775,6 @@ const LibrisEditor = ({ route, navigation }) => {
   );
 
   // ----- Portfolio Form -----
-  /**
-   * Renders the portfolio editor.
-   * Sections:
-   *   - Name, Subtitle, About (text inputs)
-   *   - Skills (list of text inputs, add/delete)
-   *   - Experience (list with year, title, description)
-   *   - Education (list with year, title)
-   *   - Contact (JSON textarea with validation)
-   */
   const renderPortfolioForm = () => {
     const handleContactChange = (text) => {
       try {
@@ -1043,9 +939,6 @@ const LibrisEditor = ({ route, navigation }) => {
   };
 
   // ----- Points List View -----
-  /**
-   * Renders a list of points with edit and delete buttons.
-   */
   const renderPointsList = () => {
     const items = points.filter(Boolean);
 
@@ -1102,10 +995,6 @@ const LibrisEditor = ({ route, navigation }) => {
   };
 
   // ----- Point Form -----
-  /**
-   * Renders the form for adding/editing a point.
-   * Fields: name, description, links (one per line, format label|url)
-   */
   const renderPointForm = () => {
     const handleLinksChange = (text) => {
       const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
@@ -1166,12 +1055,8 @@ const LibrisEditor = ({ route, navigation }) => {
   };
 
   // ======================================================================
-  // 14. LIST VIEW for topics/dispatches/manuscripts
+  // LIST VIEW for topics/dispatches/manuscripts
   // ======================================================================
-  /**
-   * Renders the main list for the current tab (topics, dispatches, manuscripts).
-   * Each item has edit and delete buttons.
-   */
   const renderMainList = () => {
     let items = [];
     if (activeTab === 'topics') items = subjects;
@@ -1196,7 +1081,7 @@ const LibrisEditor = ({ route, navigation }) => {
         </TouchableOpacity>
 
         <FlatList
-          key={`main-list-${activeTab}-${items.length}-${refreshFlag}`} // Forces remount when data changes
+          key={`main-list-${activeTab}-${items.length}-${refreshFlag}`}
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -1212,7 +1097,6 @@ const LibrisEditor = ({ route, navigation }) => {
                 <TouchableOpacity
                   onPress={() => {
                     setEditingItem(item);
-                    // If it's an old manuscript with `article`, convert to treatise
                     if (activeTab === 'manuscripts' && item.article && !item.treatises) {
                       item.treatises = [
                         { id: generateId('T'), title: 'Treatise I', content: item.article },
@@ -1253,17 +1137,11 @@ const LibrisEditor = ({ route, navigation }) => {
   };
 
   // ======================================================================
-  // 15. EDITOR SWITCH – decides which form to show
+  // EDITOR SWITCH – determines which form to show
   // ======================================================================
-  /**
-   * Determines which editor view to render based on activeTab.
-   * For Topic, Dispatch, Manuscript – uses a fixed bottom bar with Save/Cancel.
-   * For other tabs, uses the older layout (buttons inside scroll).
-   */
   const renderEditor = () => {
     let form = null;
-    let isFormWithButtons = false; // topic, dispatch, manuscript have fixed bottom bar
-
+    let isFormWithButtons = false;
     if (activeTab === 'topic') {
       form = renderTopicForm();
       isFormWithButtons = true;
@@ -1301,11 +1179,12 @@ const LibrisEditor = ({ route, navigation }) => {
           >
             <Text style={styles.backText}>← BACK TO LIST</Text>
           </TouchableOpacity>
-          <View style={styles.editorScrollWrapper}>
+          <View style={[styles.scrollContainer, { height: scrollViewHeight }]}>
             <ScrollView
               contentContainerStyle={styles.formContainer}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              style={Platform.OS === 'web' ? styles.webScroll : null}
             >
               {form}
             </ScrollView>
@@ -1328,6 +1207,7 @@ const LibrisEditor = ({ route, navigation }) => {
         contentContainerStyle={styles.editorContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        style={Platform.OS === 'web' ? styles.webScroll : null}
       >
         {form}
       </ScrollView>
@@ -1348,7 +1228,7 @@ const LibrisEditor = ({ route, navigation }) => {
           </TouchableOpacity>
         )}
         {activeTab === 'portfolio' && <View style={styles.backButtonPlaceholder} />}
-        <View style={[styles.editorScrollWrapper, { height: editorHeight }]}>
+        <View style={[styles.scrollContainer, { height: baseEditorHeight }]}>
           {Platform.OS === 'ios' ? (
             <KeyboardAvoidingView
               style={styles.keyboardView}
@@ -1366,7 +1246,7 @@ const LibrisEditor = ({ route, navigation }) => {
   };
 
   // ======================================================================
-  // 16. Tabs renderer
+  // TABS
   // ======================================================================
   const renderTabs = () => (
     <View style={[styles.tabContainer, { height: tabsHeight }]}>
@@ -1385,7 +1265,7 @@ const LibrisEditor = ({ route, navigation }) => {
   );
 
   // ======================================================================
-  // 17. Main render
+  // MAIN RENDER
   // ======================================================================
   return (
     <View style={[styles.root, { paddingTop: topPadding }]}>
@@ -1409,7 +1289,7 @@ const LibrisEditor = ({ route, navigation }) => {
 };
 
 // ========================================================================
-// 18. Styles – all style definitions with comments
+// STYLES
 // ========================================================================
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: THEME.onyx },
@@ -1450,7 +1330,7 @@ const styles = StyleSheet.create({
   deleteBtn: { padding: 5 },
   actionText: { color: THEME.gold, fontSize: 16 },
   editorWrapper: { flex: 1, backgroundColor: THEME.parchment },
-  editorScrollWrapper: { flex: 1 },
+  scrollContainer: { width: '100%' },
   keyboardView: { flex: 1 },
   editorContent: { padding: 20, paddingBottom: 40 },
   backButton: {
@@ -1625,6 +1505,10 @@ const styles = StyleSheet.create({
   toolbar: { flexDirection: 'row', marginBottom: 8 },
   toolbarBtn: { backgroundColor: THEME.charcoal, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, marginRight: 10 },
   toolbarBtnText: { color: THEME.gold, fontWeight: '700', fontSize: 10 },
+  // Web-specific style for scrolling
+  webScroll: {
+    overflow: 'auto',
+  },
 });
 
 export default LibrisEditor;

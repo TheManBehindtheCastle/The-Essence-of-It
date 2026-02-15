@@ -19,6 +19,8 @@ const AppHeader = ({ title = 'AL-KHALASA', showBack = false, onBack, hideNavLink
   const openSearch = () => navigation.navigate('Search');
   const openPortfolio = () => navigation.navigate('Portfolio');
   const openPoints = () => navigation.navigate('Points');
+  const openHighlights = () => navigation.navigate('Highlights');
+  const openFiction = () => navigation.navigate('Fiction');
 
   return (
     <>
@@ -36,6 +38,12 @@ const AppHeader = ({ title = 'AL-KHALASA', showBack = false, onBack, hideNavLink
           {!hideNavLinks && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollLinks}>
               <View style={styles.rightContainer}>
+                <TouchableOpacity onPress={openHighlights} style={styles.navLink}>
+                  <Text style={styles.navLinkText}>HIGHLIGHTS</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={openFiction} style={styles.navLink}>
+                  <Text style={styles.navLinkText}>FICTION</Text>
+                </TouchableOpacity>
                 <TouchableOpacity onPress={openTopics} style={styles.navLink}>
                   <Text style={styles.navLinkText}>TOPICS</Text>
                 </TouchableOpacity>

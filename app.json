@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "al-khulasah",
-    "slug": "snack-ed80c445-c15a-43e7-b3c6-de3da1bd777c",
+    "name": "al-khulasa",
+    "slug": "snack-68925fd6-c71d-4134-a203-cbc7bbb1e1dc",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,6 +25,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "description": "App and Blog, full dev version."
+    "description": "Archive + Editor App.\n"
   }
 }
